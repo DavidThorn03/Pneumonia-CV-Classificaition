@@ -7,7 +7,7 @@ import keras
 import tensorflow as tf
 from keras.datasets import mnist
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Rescaling, BatchNormalization
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Rescaling, BatchNormalization, RandomFlip, RandomRotation, RandomZoom
 from keras.optimizers import RMSprop,Adam
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,14 +29,25 @@ AUTOTUNE = tf.data.AUTOTUNE
 
 batch_size = 16
 num_classes = 3
-epochs = 8
+epochs = 30
 img_width = 128
 img_height = 128
-img_channels = 3
+img_channels = 1
 fit = True #make fit false if you do not want to train the network again
+stage = 'Imbalance/'
+os.makedirs(stage, exist_ok=True)
+os.makedirs(stage + 'plot', exist_ok=True)
+os.makedirs(stage + 'reports', exist_ok=True)
+
 
 train_dir = 'chest_xray/chest_xray/train/'
 test_dir = 'chest_xray/chest_xray/test/'
+
+data_augmentation = tf.keras.Sequential([
+    RandomFlip('horizontal'),
+    RandomRotation(0.01),
+    RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05))
+])
     
 #create training,validation and test datatsets 
 train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
@@ -48,7 +59,8 @@ train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
     batch_size=batch_size,
     labels='inferred',
     shuffle=True,
-    verbose=False)
+    verbose=False,
+    color_mode='grayscale')
 
 test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     test_dir,
@@ -57,7 +69,8 @@ test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     batch_size=batch_size,
     labels='inferred',
     shuffle=False,
-    verbose=False)
+    verbose=False,
+    color_mode='grayscale')
 
 class_names = train_ds.class_names
 print('Class Names: ',class_names)
@@ -70,6 +83,7 @@ test_ds = test_ds.prefetch(AUTOTUNE)
 #create model
 model = tf.keras.models.Sequential([
     Rescaling(1.0/255),
+    data_augmentation,
     Conv2D(16, (3,3), activation = 'relu', input_shape = (img_height,img_width, img_channels)),
     MaxPooling2D(2,2),
     Conv2D(32, (3,3), activation = 'relu'),
@@ -86,18 +100,18 @@ model.compile(loss='sparse_categorical_crossentropy',
                 optimizer=Adam(),
                 metrics=['accuracy'])
 
-#earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)
-save_callback = tf.keras.callbacks.ModelCheckpoint("pneumonia.keras",save_freq='epoch',save_best_only=True)
+earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)
+save_callback = tf.keras.callbacks.ModelCheckpoint(stage + "pneumonia.keras",save_freq='epoch',save_best_only=True)
 
 if fit:
     history = model.fit(
         train_ds,
         batch_size=batch_size,
         validation_data=val_ds,
-        callbacks=[save_callback],
+        callbacks=[save_callback, earlystop_callback],
         epochs=epochs)
 else:
-    model = tf.keras.models.load_model("pneumonia.keras")
+    model = tf.keras.models.load_model(stage + "pneumonia.keras")
 
 #if shuffle=True when creating the dataset, samples will be chosen randomly   
 score = model.evaluate(test_ds, batch_size=batch_size)
@@ -116,13 +130,13 @@ report = classification_report(
 
 print(report)
 
-with open("reports/classification_report.txt", "w") as f:
+with open(stage + "reports/classification_report.txt", "w") as f:
     f.write(report)
 
 cm = confusion_matrix(y_true, y_pred)
 per_class_accuracy = cm.diagonal() / cm.sum(axis=1)
 
-with open("reports/per_class_accuracy.txt", "w") as f:
+with open(stage + "reports/per_class_accuracy.txt", "w") as f:
     for i, class_name in enumerate(class_names):
         f.write(f"{class_name}: {per_class_accuracy[i]:.4f}\n")
 
@@ -131,13 +145,13 @@ cm_norm = confusion_matrix(y_true, y_pred, normalize="true")
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
 disp.plot(cmap="Blues", values_format="d")
 plt.title("Confusion Matrix")
-plt.savefig("plots/confusion_matrix.png", bbox_inches="tight")
+plt.savefig(stage + "plots/confusion_matrix.png", bbox_inches="tight")
 plt.close()
 
 disp = ConfusionMatrixDisplay(confusion_matrix=cm_norm, display_labels=class_names)
 disp.plot(cmap="Blues", values_format=".2f")
 plt.title("Normalized Confusion Matrix")
-plt.savefig("plots/confusion_matrix_normalized.png", bbox_inches="tight")
+plt.savefig(stage + "plots/confusion_matrix_normalized.png", bbox_inches="tight")
 plt.close()
 
 if fit:
@@ -148,5 +162,5 @@ if fit:
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
-    plt.savefig('plots/training_accuracy.png')
+    plt.savefig(stage + 'plots/training_accuracy.png')
     plt.close()
