@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-os.makedirs("plots", exist_ok=True)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import keras
@@ -19,7 +18,6 @@ from sklearn.metrics import ConfusionMatrixDisplay
 import warnings
 warnings.filterwarnings("ignore")
 
-import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 
 gpus = tf.config.list_physical_devices('GPU')
@@ -40,7 +38,7 @@ fit = True #make fit false if you do not want to train the network again
 train_dir = 'chest_xray/chest_xray/train/'
 test_dir = 'chest_xray/chest_xray/test/'
     
-#create training,validation and test datatsets
+#create training,validation and test datatsets 
 train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
     train_dir,
     seed=123,
@@ -134,6 +132,13 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
 disp.plot(cmap="Blues", values_format="d")
 plt.title("Confusion Matrix")
 plt.savefig("plots/confusion_matrix.png", bbox_inches="tight")
+plt.close()
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_norm, display_labels=class_names)
+disp.plot(cmap="Blues", values_format=".2f")
+plt.title("Normalized Confusion Matrix")
+plt.savefig("plots/confusion_matrix_normalized.png", bbox_inches="tight")
+plt.close()
 
 if fit:
     plt.figure()
@@ -144,5 +149,4 @@ if fit:
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
     plt.savefig('plots/training_accuracy.png')
-
-plt.savefig('plots/accuracy.png')
+    plt.close()
