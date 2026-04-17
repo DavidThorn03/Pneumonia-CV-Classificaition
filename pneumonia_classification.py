@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.utils.class_weight import compute_class_weight
 
 
 import warnings
@@ -36,18 +37,11 @@ img_channels = 1
 fit = True #make fit false if you do not want to train the network again
 stage = 'Imbalance/'
 os.makedirs(stage, exist_ok=True)
-os.makedirs(stage + 'plot', exist_ok=True)
+os.makedirs(stage + 'plots', exist_ok=True)
 os.makedirs(stage + 'reports', exist_ok=True)
-
 
 train_dir = 'chest_xray/chest_xray/train/'
 test_dir = 'chest_xray/chest_xray/test/'
-
-data_augmentation = tf.keras.Sequential([
-    RandomFlip('horizontal'),
-    RandomRotation(0.01),
-    RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05))
-])
     
 #create training,validation and test datatsets 
 train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
@@ -80,6 +74,22 @@ train_ds = train_ds.prefetch(AUTOTUNE)
 val_ds = val_ds.prefetch(AUTOTUNE)
 test_ds = test_ds.prefetch(AUTOTUNE)
 
+data_augmentation = tf.keras.Sequential([
+    RandomFlip('horizontal'),
+    RandomRotation(0.01),
+    RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05))
+])
+
+y_train = np.concatenate([labels.numpy() for _, labels in train_ds])
+
+class_weights_array = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y_train),
+    y=y_train
+)
+
+class_weight = dict(enumerate(class_weights_array))
+
 #create model
 model = tf.keras.models.Sequential([
     Rescaling(1.0/255),
@@ -109,7 +119,8 @@ if fit:
         batch_size=batch_size,
         validation_data=val_ds,
         callbacks=[save_callback, earlystop_callback],
-        epochs=epochs)
+        epochs=epochs,
+        class_weight=class_weight)
 else:
     model = tf.keras.models.load_model(stage + "pneumonia.keras")
 
