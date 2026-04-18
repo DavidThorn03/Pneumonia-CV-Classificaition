@@ -35,7 +35,7 @@ img_width = 128
 img_height = 128
 img_channels = 1
 fit = True #make fit false if you do not want to train the network again
-stage = 'Imbalance/'
+stage = 'Congiguration/'
 os.makedirs(stage, exist_ok=True)
 os.makedirs(stage + 'plots', exist_ok=True)
 os.makedirs(stage + 'reports', exist_ok=True)
@@ -94,11 +94,11 @@ class_weight = dict(enumerate(class_weights_array))
 model = tf.keras.models.Sequential([
     Rescaling(1.0/255),
     data_augmentation,
-    Conv2D(16, (3,3), activation = 'relu', input_shape = (img_height,img_width, img_channels)),
+    Conv2D(32, (3,3), activation = 'relu', input_shape = (img_height,img_width, img_channels)),
     MaxPooling2D(2,2),
-    Conv2D(32, (3,3), activation = 'relu'),
+    Conv2D(64, (3,3), activation = 'relu'),
     MaxPooling2D(2,2),
-    Conv2D(32, (3,3), activation = 'relu'),
+    Conv2D(128, (3,3), activation = 'relu'),
     MaxPooling2D(2,2),
     Flatten(), # flatten multidimensional outputs into single dimension for input to dense fully connected layers
     Dense(512, activation = 'relu'),

@@ -182,3 +182,5 @@ cython_debug/
 
 chest_xray/*
 chest_xray.zip
+
+*.keras
