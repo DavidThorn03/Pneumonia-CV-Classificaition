@@ -1,0 +1,9 @@
+              precision    recall  f1-score   support
+
+   BACTERIAL     0.8611    0.5054    0.6370       184
+      NORMAL     0.8992    0.9508    0.9243       122
+       VIRAL     0.5400    0.8244    0.6526       131
+
+    accuracy                         0.7254       437
+   macro avg     0.7668    0.7602    0.7380       437
+weighted avg     0.7755    0.7254    0.7219       437
