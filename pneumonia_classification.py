@@ -7,8 +7,7 @@ import keras
 import tensorflow as tf
 from keras.datasets import mnist
 from keras.models import Sequential
-from keras.layers import Activation, Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Rescaling, BatchNormalization, RandomFlip, RandomRotation, RandomZoom, GlobalAvgPool2D
-from tensorflow.keras.applications import EfficientNetB0
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Rescaling, BatchNormalization, RandomFlip, RandomRotation, RandomZoom, GlobalAvgPool2D
 from keras.optimizers import RMSprop,Adam
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,18 +31,18 @@ AUTOTUNE = tf.data.AUTOTUNE
 batch_size = 16
 num_classes = 3
 epochs = 30
-img_width = 224
-img_height = 224
-img_channels = 3
-fit = True #make fit false if you do not want to train the network again
-stage = 'Transfer/'
+img_width = 128
+img_height = 128
+img_channels = 1
+fit = False #make fit false if you do not want to train the network again
+stage = './'
 os.makedirs(stage, exist_ok=True)
 os.makedirs(stage + 'plots', exist_ok=True)
 os.makedirs(stage + 'reports', exist_ok=True)
 
 train_dir = 'chest_xray/chest_xray/train/'
 test_dir = 'chest_xray/chest_xray/test/'
-    
+
 #create training,validation and test datatsets 
 train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
     train_dir,
@@ -55,7 +54,7 @@ train_ds,val_ds = tf.keras.preprocessing.image_dataset_from_directory(
     labels='inferred',
     shuffle=True,
     verbose=False,
-    color_mode='rgb')
+    color_mode='grayscale')
 
 test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     test_dir,
@@ -65,7 +64,7 @@ test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     labels='inferred',
     shuffle=False,
     verbose=False,
-    color_mode='rgb')
+    color_mode='grayscale')
 
 class_names = train_ds.class_names
 print('Class Names: ',class_names)
@@ -81,15 +80,6 @@ data_augmentation = tf.keras.Sequential([
     RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05))
 ])
 
-base_model = tf.keras.applications.EfficientNetB0(
-    include_top=False,
-    weights="imagenet",
-    input_shape=(img_height, img_width, 3),
-    pooling="avg"
-)
-
-base_model.trainable = False
-
 y_train = np.concatenate([labels.numpy() for _, labels in train_ds])
 
 class_weights_array = compute_class_weight(
@@ -101,12 +91,19 @@ class_weights_array = compute_class_weight(
 class_weight = dict(enumerate(class_weights_array))
 
 #create model
-model = tf.keras.Sequential([
-    tf.keras.Input(shape=(img_height, img_width, 3)),
+model = tf.keras.models.Sequential([
+    Rescaling(1.0/255),
     data_augmentation,
-    base_model,
-    tf.keras.layers.Dropout(0.2),
-    tf.keras.layers.Dense(num_classes, activation="softmax")
+    Conv2D(32, (3,3), activation = 'relu', input_shape = (img_height,img_width, img_channels)),
+    MaxPooling2D(2,2),
+    Conv2D(64, (3,3), activation = 'relu'),
+    MaxPooling2D(2,2),
+    Conv2D(128, (3,3), activation = 'relu'),
+    MaxPooling2D(2,2),
+    Flatten(), # flatten multidimensional outputs into single dimension for input to dense fully connected layers
+    Dense(512, activation = 'relu'),
+    Dropout(0.2),
+    Dense(num_classes, activation = 'softmax')
 ])
 
 model.compile(loss='sparse_categorical_crossentropy',
@@ -114,7 +111,7 @@ model.compile(loss='sparse_categorical_crossentropy',
                 metrics=['accuracy'])
 
 earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)
-save_callback = tf.keras.callbacks.ModelCheckpoint(stage + "pneumonia.keras",save_freq='epoch',save_best_only=True)
+save_callback = tf.keras.callbacks.ModelCheckpoint(stage + "pneumonia.keras",save_freq='epoch')
 
 if fit:
     history = model.fit(
